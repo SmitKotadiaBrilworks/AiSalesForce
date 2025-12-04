@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,26 +16,95 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { setAuthToken } from "@/lib/auth-client";
+
+const signUpSchema = z
+  .object({
+    fullName: z
+      .string()
+      .min(2, "Name must be at least 2 characters")
+      .max(100, "Name is too long"),
+    companyName: z
+      .string()
+      .min(2, "Company name must be at least 2 characters")
+      .max(150, "Company name is too long"),
+    email: z.string().email("Please enter a valid email address"),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(
+        /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d).+$/,
+        "Password must contain upper, lower case letters and a number"
+      ),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
-  const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    password: "",
-    companyName: "",
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      fullName: "",
+      companyName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
   const router = useRouter();
 
-  const handleSignUp = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Mock sign up - in real app, use Supabase auth
-    console.log("Sign up:", formData);
-    // Redirect to login after successful sign up
-    router.push("/login?registered=true");
+  const handleSignUp = async (values: SignUpFormValues) => {
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fullName: values.fullName,
+          companyName: values.companyName,
+          email: values.email,
+          password: values.password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to create account");
+        setLoading(false);
+        return;
+      }
+
+      // Store token
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+
+      // Redirect to dashboard
+      router.push("/dashboard");
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -41,7 +113,7 @@ export default function SignUpPage() {
       >
         <div className="text-center mb-8">
           <Link href="/">
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
               AI SalesFlow
             </h1>
           </Link>
@@ -56,7 +128,12 @@ export default function SignUpPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSignUp} className="space-y-4">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
+                {error}
+              </div>
+            )}
+            <form onSubmit={handleSubmit(handleSignUp)} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">
                   Full Name
@@ -64,12 +141,13 @@ export default function SignUpPage() {
                 <Input
                   type="text"
                   placeholder="John Doe"
-                  value={formData.fullName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, fullName: e.target.value })
-                  }
-                  required
+                  {...register("fullName")}
                 />
+                {errors.fullName && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.fullName.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">
@@ -78,12 +156,13 @@ export default function SignUpPage() {
                 <Input
                   type="text"
                   placeholder="Acme Inc."
-                  value={formData.companyName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, companyName: e.target.value })
-                  }
-                  required
+                  {...register("companyName")}
                 />
+                {errors.companyName && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.companyName.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">
@@ -92,12 +171,14 @@ export default function SignUpPage() {
                 <Input
                   type="email"
                   placeholder="you@company.com"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  required
+                  autoComplete="email"
+                  {...register("email")}
                 />
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.email.message}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 mb-1 block">
@@ -106,22 +187,41 @@ export default function SignUpPage() {
                 <Input
                   type="password"
                   placeholder="••••••••"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  required
-                  minLength={8}
+                  autoComplete="new-password"
+                  {...register("password")}
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  At least 8 characters
+                  At least 8 characters, including upper & lower case and a
+                  number
                 </p>
+                {errors.password && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700 mb-1 block">
+                  Confirm Password
+                </label>
+                <Input
+                  type="password"
+                  placeholder="Repeat your password"
+                  autoComplete="new-password"
+                  {...register("confirmPassword")}
+                />
+                {errors.confirmPassword && (
+                  <p className="mt-1 text-xs text-red-600">
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
               </div>
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+                disabled={loading}
+                className="w-full bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50"
               >
-                Create Account
+                {loading ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
 
