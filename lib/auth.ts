@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from "jose";
+import jwt from "jsonwebtoken";
 
 const JWT_SECRET =
   process.env.NEXT_PUBLIC_JWT_SECRET || "your-secret-key-change-in-production";
@@ -10,24 +10,18 @@ export interface JWTPayload {
 }
 
 // Generate JWT token
-export async function generateToken(payload: JWTPayload): Promise<string> {
-  const secret = new TextEncoder().encode(JWT_SECRET);
-  // jose expects a generic record payload; cast to satisfy type checker
-  const genericPayload = payload as unknown as Record<string, unknown>;
-  return await new SignJWT(genericPayload)
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setExpirationTime("7d")
-    .sign(secret);
+export function generateToken(payload: JWTPayload): string {
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: "7d", // Token expires in 7 days
+  });
 }
 
 // Verify JWT token
-export async function verifyToken(token: string): Promise<JWTPayload | null> {
+export function verifyToken(token: string): JWTPayload | null {
   console.log("verifyToken", token);
   try {
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
-    // Cast jose payload (unknown) to our JWTPayload shape
-    return payload as unknown as JWTPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return decoded;
   } catch (error) {
     console.log("error", error);
     return null;

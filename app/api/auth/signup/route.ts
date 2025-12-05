@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     const userId = userResult.insertedId.toString();
 
     // Generate JWT token
-    const token = await generateToken({
+    const token = generateToken({
       userId,
       email: email.toLowerCase(),
       tenantId: tenantId.toString(),

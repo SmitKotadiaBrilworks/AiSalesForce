@@ -30,7 +30,7 @@ function getTokenFromRequest(request: NextRequest): string | null {
   return null;
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip API routes and Next.js internals
