@@ -1,5 +1,7 @@
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
+import { AppLogo, AppName } from "../ui/appLogo";
+import Link from "next/link";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -12,8 +14,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden h-16 border-b bg-white flex items-center px-4 justify-between">
-          <div className="font-bold text-lg">AI SalesFlow</div>
+        <header className="md:hidden h-14 border-b bg-white flex items-center px-4 justify-between">
+          <Link href="/" className="flex items-center gap-2">
+            <AppLogo logoClassName="h-7" />
+            <AppName className="text-lg" />
+          </Link>
           <MobileNav />
         </header>
 

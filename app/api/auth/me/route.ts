@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
     // Find user
     const user = await db.collection("users").findOne({
-      _id: new ObjectId(payload.userId),
+      _id: new ObjectId(),
     });
 
     if (!user) {
